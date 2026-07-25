@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snap Social</title>
+    <style>
+        body { font-family: sans-serif; background-color: #121212; color: white; text-align: center; padding: 20px; }
+        input { width: 80%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; }
+        button { padding: 12px 24px; background-color: #008cba; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .card { background: #1e1e1e; margin: 15px auto; padding: 15px; border-radius: 10px; max-width: 400px; }
+        .dl-btn { display: inline-block; padding: 8px 16px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2>Snap Social Downloader 🚀</h2>
+    <input type="text" id="videoUrl" placeholder="ضع رابط الفيديو هنا...">
+    <br>
+    <button onclick="processVideo()" id="btnText">جلب سيرفرات التحميل</button>
+
+    <div id="result"></div>
+
+    <script>
+        async function processVideo() {
+            const url = document.getElementById('videoUrl').value;
+            const resultDiv = document.getElementById('result');
+            const btn = document.getElementById('btnText');
+
+            if (!url) { alert('من فضلك ادخل الرابط'); return; }
+
+            btn.innerText = 'جاري المعالجة... ⏳';
+            resultDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+                btn.innerText = 'جلب سيرفرات التحميل';
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<p style="color:red">${data.error}</p>`;
+                    return;
+                }
+
+                let html = `<div class="card">
+                    <h3>${data.title}</h3>
+                    <img src="${data.thumbnail}" width="100%" style="border-radius:8px;">
+                    <h4>سيرفرات التحميل المباشرة:</h4>`;
+
+                data.formats.forEach(f => {
+                    html += `<p>${f.quality} (${f.ext}) 
+                        <a href="${f.url}" download target="_blank" class="dl-btn">تحميل مباشر 📥</a>
+                    </p>`;
+                });
+
+                html += `</div>`;
+                resultDiv.innerHTML = html;
+
+            } catch (err) {
+                btn.innerText = 'جلب سيرفرات التحميل';
+                resultDiv.innerHTML = '<p style="color:red">حدث خطأ في الاتصال بالباك إند</p>';
+            }
+        }
+    </script>
+</body>
+</html>
