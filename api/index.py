@@ -17,57 +17,53 @@ def extract_video():
         return jsonify({'error': 'يرجى إدخال رابط صحيح'}), 400
 
     try:
-        # استخدام API مباشر وسريع بديل
-        api_endpoint = f"https://api.vkrdown.com/api/download?url={url}"
+        # API قوي ومباشر ومستقر لجميع المنصات
+        api_url = f"https://api.tiklydown.eu.org/api/download?url={url}"
         
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
 
-        response = requests.get(api_endpoint, headers=headers, timeout=12)
-        res_data = response.json()
-
-        if response.status_code == 200 and res_data.get('status') == True:
-            data_info = res_data.get('data', {})
-            download_url = data_info.get('url') or data_info.get('downloadUrl')
-            title = data_info.get('title', 'فيديو جاهز للتحميل')
-            thumb = data_info.get('thumbnail', '')
-
-            # جمع كل الجودات المتاحة لو موجودة
-            formats = []
-            if 'downloads' in data_info and isinstance(data_info['downloads'], list):
-                for item in data_info['downloads']:
-                    formats.append({
-                        'quality': item.get('quality', 'Video HD'),
-                        'ext': item.get('format', 'mp4'),
-                        'url': item.get('url')
-                    })
-            elif download_url:
-                formats.append({
-                    'quality': 'HD Video',
-                    'ext': 'mp4',
-                    'url': download_url
-                })
-
-            if formats:
-                return jsonify({
-                    'title': title,
-                    'thumbnail': thumb,
-                    'formats': formats
-                })
-
-        # في حال لم يرجع السيرفر الأول نتائج، يتم التحويل لـ API احتياطي ممتاز
-        fallback_api = f"https://aadvance-downloader.vercel.app/api/download?url={url}"
-        fb_res = requests.get(fallback_api, timeout=10).json()
+        # محاولة السيرفر الأول
+        response = requests.get(api_url, headers=headers, timeout=10)
         
-        if fb_res.get('url'):
-            return jsonify({
-                'title': fb_res.get('title', 'فيديو جاهز'),
-                'thumbnail': fb_res.get('thumbnail', ''),
-                'formats': [{'quality': 'Download Video', 'ext': 'mp4', 'url': fb_res['url']}]
-            })
+        if response.status_code == 200:
+            res_data = response.json()
+            # في حال كان يوتيوب أو أينما كان نوع الفيديو
+            video_url = res_data.get('video', {}).get('noWatermark') or res_data.get('url') or res_data.get('download_url')
+            
+            if video_url:
+                return jsonify({
+                    'title': res_data.get('title', 'فيديو جاهز للتحميل'),
+                    'thumbnail': res_data.get('cover', ''),
+                    'formats': [{'quality': 'HD Video', 'ext': 'mp4', 'url': video_url}]
+                })
 
-        return jsonify({'error': 'تعذر استخراج رابط الفيديو، تأكد من صحة الرابط وسماحية الفيديو.'}), 400
+        # سيرفر احتياطي قوي جداً (Invidious API) المخصص لليوتيوب
+        if 'youtu' in url:
+            # استخراج الـ ID الخاص بالفيديو
+            video_id = url.split('/')[-1].split('?')[0].replace('watch?v=', '')
+            invidious_api = f"https://inv.tux.gay/api/v1/videos/{video_id}"
+            
+            inv_res = requests.get(invidious_api, headers=headers, timeout=10)
+            if inv_res.status_code == 200:
+                inv_data = inv_res.json()
+                formats = []
+                for fmt in inv_data.get('formatStreams', []):
+                    formats.append({
+                        'quality': fmt.get('qualityLabel', 'Video'),
+                        'ext': 'mp4',
+                        'url': fmt.get('url')
+                    })
+                
+                if formats:
+                    return jsonify({
+                        'title': inv_data.get('title', 'YouTube Video'),
+                        'thumbnail': inv_data.get('videoThumbnails', [{}])[0].get('url', ''),
+                        'formats': formats
+                    })
+
+        return jsonify({'error': 'لم نتمكن من جلب السيرفرات، يرجى التأكد من أن الرابط لفيديو عام وشغال.'}), 400
 
     except Exception as e:
-        return jsonify({'error': f'حدث خطأ أثناء الاتصال: {str(e)}'}), 500
+        return jsonify({'error': f'حدث خطأ أثناء جلب الفيديو: {str(e)}'}), 500
