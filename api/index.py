@@ -17,47 +17,57 @@ def extract_video():
         return jsonify({'error': 'يرجى إدخال رابط صحيح'}), 400
 
     try:
-        # استخدام API معالجة مجاني وداعم لجميع المنصات وبدون حظر IP
-        api_url = f"https://api.cobalt.tools/api/json"
+        # استخدام API مباشر وسريع بديل
+        api_endpoint = f"https://api.vkrdown.com/api/download?url={url}"
+        
         headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "url": url,
-            "vQuality": "720"
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
 
-        response = requests.post(api_url, json=payload, headers=headers, timeout=10)
+        response = requests.get(api_endpoint, headers=headers, timeout=12)
         res_data = response.json()
 
-        if response.status_code == 200 and "url" in res_data:
-            return jsonify({
-                'title': 'جاهز للتحميل',
-                'thumbnail': '',
-                'formats': [{
+        if response.status_code == 200 and res_data.get('status') == True:
+            data_info = res_data.get('data', {})
+            download_url = data_info.get('url') or data_info.get('downloadUrl')
+            title = data_info.get('title', 'فيديو جاهز للتحميل')
+            thumb = data_info.get('thumbnail', '')
+
+            # جمع كل الجودات المتاحة لو موجودة
+            formats = []
+            if 'downloads' in data_info and isinstance(data_info['downloads'], list):
+                for item in data_info['downloads']:
+                    formats.append({
+                        'quality': item.get('quality', 'Video HD'),
+                        'ext': item.get('format', 'mp4'),
+                        'url': item.get('url')
+                    })
+            elif download_url:
+                formats.append({
                     'quality': 'HD Video',
                     'ext': 'mp4',
-                    'url': res_data['url']
-                }]
-            })
-        elif "picker" in res_data:
-            # في حالة وجود أكثر من جودة أو صور/صوت متفرق
-            formats = []
-            for item in res_data["picker"]:
-                formats.append({
-                    'quality': item.get('type', 'Media'),
-                    'ext': 'mp4',
-                    'url': item.get('url')
+                    'url': download_url
                 })
+
+            if formats:
+                return jsonify({
+                    'title': title,
+                    'thumbnail': thumb,
+                    'formats': formats
+                })
+
+        # في حال لم يرجع السيرفر الأول نتائج، يتم التحويل لـ API احتياطي ممتاز
+        fallback_api = f"https://aadvance-downloader.vercel.app/api/download?url={url}"
+        fb_res = requests.get(fallback_api, timeout=10).json()
+        
+        if fb_res.get('url'):
             return jsonify({
-                'title': 'اختر الجودة للتحميل',
-                'thumbnail': '',
-                'formats': formats
+                'title': fb_res.get('title', 'فيديو جاهز'),
+                'thumbnail': fb_res.get('thumbnail', ''),
+                'formats': [{'quality': 'Download Video', 'ext': 'mp4', 'url': fb_res['url']}]
             })
-        else:
-            error_msg = res_data.get('text', 'تعذر جلب رابط التحميل، تأكد من صحة الرابط.')
-            return jsonify({'error': error_msg}), 400
+
+        return jsonify({'error': 'تعذر استخراج رابط الفيديو، تأكد من صحة الرابط وسماحية الفيديو.'}), 400
 
     except Exception as e:
-        return jsonify({'error': f'حدث خطأ في الاتصال بالخادم: {str(e)}'}), 500
+        return jsonify({'error': f'حدث خطأ أثناء الاتصال: {str(e)}'}), 500
