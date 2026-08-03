@@ -3,6 +3,9 @@ import requests
 
 app = Flask(__name__, template_folder='../templates')
 
+# المفتاح بتاعك جاهز ومتركب هنا
+RAPIDAPI_KEY = "a2d320d7b9msh75c16116931fc44p118354jsn0ea5c9e194d4"
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
@@ -17,53 +20,40 @@ def extract_video():
         return jsonify({'error': 'يرجى إدخال رابط صحيح'}), 400
 
     try:
-        # API قوي ومباشر ومستقر لجميع المنصات
-        api_url = f"https://api.tiklydown.eu.org/api/download?url={url}"
+        api_url = "https://youtube-media-downloader.p.rapidapi.com/v2/video/details"
         
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            "x-rapidapi-key": RAPIDAPI_KEY,
+            "x-rapidapi-host": "youtube-media-downloader.p.rapidapi.com"
         }
-
-        # محاولة السيرفر الأول
-        response = requests.get(api_url, headers=headers, timeout=10)
         
+        # استخراج ID الفيديو من الرابط
+        video_id = url.split('/')[-1].split('?')[0].replace('watch?v=', '')
+        
+        params = {"videoId": video_id}
+        response = requests.get(api_url, headers=headers, params=params, timeout=15)
+        res_data = response.json()
+
         if response.status_code == 200:
-            res_data = response.json()
-            # في حال كان يوتيوب أو أينما كان نوع الفيديو
-            video_url = res_data.get('video', {}).get('noWatermark') or res_data.get('url') or res_data.get('download_url')
+            formats = []
             
-            if video_url:
-                return jsonify({
-                    'title': res_data.get('title', 'فيديو جاهز للتحميل'),
-                    'thumbnail': res_data.get('cover', ''),
-                    'formats': [{'quality': 'HD Video', 'ext': 'mp4', 'url': video_url}]
+            # استخراج روابط الفيديو
+            videos = res_data.get('videos', {}).get('items', [])
+            for item in videos:
+                formats.append({
+                    'quality': item.get('quality', 'Video'),
+                    'ext': 'mp4',
+                    'url': item.get('url')
                 })
 
-        # سيرفر احتياطي قوي جداً (Invidious API) المخصص لليوتيوب
-        if 'youtu' in url:
-            # استخراج الـ ID الخاص بالفيديو
-            video_id = url.split('/')[-1].split('?')[0].replace('watch?v=', '')
-            invidious_api = f"https://inv.tux.gay/api/v1/videos/{video_id}"
-            
-            inv_res = requests.get(invidious_api, headers=headers, timeout=10)
-            if inv_res.status_code == 200:
-                inv_data = inv_res.json()
-                formats = []
-                for fmt in inv_data.get('formatStreams', []):
-                    formats.append({
-                        'quality': fmt.get('qualityLabel', 'Video'),
-                        'ext': 'mp4',
-                        'url': fmt.get('url')
-                    })
-                
-                if formats:
-                    return jsonify({
-                        'title': inv_data.get('title', 'YouTube Video'),
-                        'thumbnail': inv_data.get('videoThumbnails', [{}])[0].get('url', ''),
-                        'formats': formats
-                    })
+            if formats:
+                return jsonify({
+                    'title': res_data.get('title', 'YouTube Video'),
+                    'thumbnail': res_data.get('thumbnails', [{}])[-1].get('url', ''),
+                    'formats': formats
+                })
 
-        return jsonify({'error': 'لم نتمكن من جلب السيرفرات، يرجى التأكد من أن الرابط لفيديو عام وشغال.'}), 400
+        return jsonify({'error': 'تأكد من صحة الرابط أو أن الفيديو غير خاص.'}), 400
 
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء جلب الفيديو: {str(e)}'}), 500
