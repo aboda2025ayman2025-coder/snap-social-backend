@@ -3,8 +3,6 @@ import requests
 
 app = Flask(__name__, template_folder='../templates')
 
-RAPIDAPI_KEY = "a2d320d7b9msh75c16116931fc44p118354jsn0ea5c9e194d4"
-
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
@@ -13,68 +11,47 @@ def catch_all(path):
 @app.route('/extract', methods=['POST'])
 def extract_video():
     data = request.get_json() or {}
-    url = data.get('url')
+    url = data.get('url', '').strip()
 
     if not url:
         return jsonify({'error': 'يرجى إدخال رابط صحيح'}), 400
 
-    try:
-        # استخدام API شغال مباشرة بياخد الرابط الكامل (URL) من غير قص ID
-        api_url = "https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink"
-        
-        headers = {
-            "x-rapidapi-key": RAPIDAPI_KEY,
-            "x-rapidapi-host": "social-download-all-in-one.p.rapidapi.com",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {"url": url}
-        response = requests.post(api_url, json=payload, headers=headers, timeout=15)
-        res_data = response.json()
+    # قائمة بسيرفرات Cobalt العامة والمجانية والسريعة جداً
+    cobalt_instances = [
+        "https://api.cobalt.tools/api/json",
+        "https://cobalt.api.sc7.io/api/json",
+        "https://co.wuk.sh/api/json"
+    ]
 
-        # في حالة وجود روابط
-        if response.status_code == 200 and "medias" in res_data:
-            formats = []
-            for item in res_data.get("medias", []):
-                formats.append({
-                    'quality': item.get('quality', 'Video HD'),
-                    'ext': item.get('extension', 'mp4'),
-                    'url': item.get('url')
-                })
-            
-            if formats:
-                return jsonify({
-                    'title': res_data.get('title', 'فيديو جاهز للتحميل'),
-                    'thumbnail': res_data.get('thumbnail', ''),
-                    'formats': formats
-                })
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
 
-        # سيرفر إضافي احتياطي ممتاز ومستقر
-        fallback_url = "https://yt-stream-downloader.p.rapidapi.com/dl"
-        fb_headers = {
-            "x-rapidapi-key": RAPIDAPI_KEY,
-            "x-rapidapi-host": "yt-stream-downloader.p.rapidapi.com"
-        }
-        fb_res = requests.get(fallback_url, headers=fb_headers, params={"url": url}, timeout=10)
-        fb_data = fb_res.json()
+    payload = {
+        "url": url,
+        "vQuality": "720"
+    }
 
-        if fb_res.status_code == 200 and "formats" in fb_data:
-            formats = []
-            for fmt in fb_data.get("formats", []):
-                if fmt.get("url"):
-                    formats.append({
-                        'quality': fmt.get('qualityLabel', 'Video'),
-                        'ext': 'mp4',
-                        'url': fmt.get('url')
+    for instance in cobalt_instances:
+        try:
+            res = requests.post(instance, json=payload, headers=headers, timeout=10)
+            if res.status_code == 200:
+                res_data = res.json()
+                video_url = res_data.get('url')
+                
+                if video_url:
+                    return jsonify({
+                        'title': 'فيديو جاهز للتحميل',
+                        'thumbnail': '',
+                        'formats': [{
+                            'quality': 'HD Video (MP4)',
+                            'ext': 'mp4',
+                            'url': video_url
+                        }]
                     })
-            if formats:
-                return jsonify({
-                    'title': fb_data.get('title', 'فيديو جاهز'),
-                    'thumbnail': fb_data.get('thumb', ''),
-                    'formats': formats
-                })
+        except Exception:
+            continue
 
-        return jsonify({'error': 'تعذر استخراج الفيديو، تأكد من صحة الرابط أو أن الفيديو غير خاص.'}), 400
-
-    except Exception as e:
-        return jsonify({'error': f'حدث خطأ أثناء جلب الفيديو: {str(e)}'}), 500
+    return jsonify({'error': 'تعذر جلب الفيديو، تأكد من صحة الرابط أو جرب رابط فيديو آخر.'}), 400
