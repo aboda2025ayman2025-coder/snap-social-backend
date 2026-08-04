@@ -5,62 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Snap Social Downloader</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
-        .card { max-width: 480px; margin: 30px auto; background: #1e1e1e; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        input { width: 90%; padding: 14px; border-radius: 10px; border: 1px solid #333; background: #2a2a2a; color: #fff; font-size: 15px; margin-bottom: 15px; text-align: center; outline: none; }
-        button { width: 95%; padding: 14px; border-radius: 10px; border: none; background: #0088cc; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
-        #status { margin-top: 15px; font-weight: 500; }
-        .download-box { margin-top: 20px; display: none; }
-        .dl-btn { display: inline-block; width: 90%; padding: 14px; background: #28a745; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; margin-top: 10px; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #fff; text-align: center; padding: 15px; margin: 0; }
+        .container { max-width: 500px; margin: 20px auto; background: #1e1e1e; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h2 { margin-bottom: 20px; font-size: 22px; color: #0088cc; }
+        .input-box { display: flex; gap: 8px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: #fff; font-size: 14px; text-align: center; outline: none; }
+        button { padding: 12px 18px; border-radius: 8px; border: none; background: #0088cc; color: #fff; font-weight: bold; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0077b5; }
+        #downloader-frame { width: 100%; height: 450px; border: none; border-radius: 12px; background: #1e1e1e; display: none; margin-top: 15px; }
+        .placeholder-text { color: #888; font-size: 14px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
+    <div class="container">
         <h2>🚀 Snap Social Downloader</h2>
-        <input type="text" id="videoUrl" placeholder="ضع رابط الفيديو هنا...">
-        <button onclick="processLink()">جلب رابط التحميل</button>
-        
-        <div id="status"></div>
-        <div id="downloadBox" class="download-box">
-            <a id="dlLink" href="#" target="_blank" download class="dl-btn">📥 اضغط هنا للتحميل المباشر (MP4)</a>
+        <div class="input-box">
+            <input type="text" id="videoUrl" placeholder="ضع رابط الفيديو هنا...">
+            <button onclick="loadDownloader()">تحميل</button>
         </div>
+
+        <p id="infoText" class="placeholder-text">أدخل الرابط واضغط تحميل لجلب سيرفرات الفيديو مباشرة.</p>
+
+        <!-- محرك التحميل الوسيط المباشر -->
+        <iframe id="downloader-frame" src=""></iframe>
     </div>
 
     <script>
-        async function processLink() {
-            const url = document.getElementById('videoUrl').value.trim();
-            const status = document.getElementById('status');
-            const box = document.getElementById('downloadBox');
-            const dlLink = document.getElementById('dlLink');
+        function loadDownloader() {
+            const urlInput = document.getElementById('videoUrl').value.trim();
+            const frame = document.getElementById('downloader-frame');
+            const infoText = document.getElementById('infoText');
 
-            if (!url) {
-                status.innerHTML = "<span style='color:red;'>يرجى إدخال الرابط!</span>";
+            if (!urlInput) {
+                alert("يرجى إدخال رابط الفيديو أولاً!");
                 return;
             }
 
-            status.innerHTML = "⏳ جاري تحضير سيرفر التحميل...";
-            box.style.display = "none";
-
-            try {
-                const res = await fetch('/extract', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ url: url })
-                });
-
-                const data = await res.json();
-
-                if (data.download_url) {
-                    status.innerHTML = "<span style='color:#28a745;'>✅ تم تجهيز الفيديو بنجاح!</span>";
-                    dlLink.href = data.download_url;
-                    box.style.display = "block";
-                } else {
-                    status.innerHTML = `<span style='color:red;'>${data.error || 'خطأ في جلب الفيديو'}</span>`;
-                }
-            } catch (err) {
-                status.innerHTML = "<span style='color:red;'>حدث خطأ في الاتصال بالسيرفر.</span>";
-            }
+            // تجهيز المحرك الوسيط المباشر
+            const cleanUrl = encodeURIComponent(urlInput);
+            frame.src = `https://loader.to/api/card/?url=${cleanUrl}`;
+            
+            // إظهار مربع التحميل
+            frame.style.display = "block";
+            infoText.style.display = "none";
         }
     </script>
 </body>
