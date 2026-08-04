@@ -6,14 +6,12 @@
     <title>Snap Social Downloader</title>
     <style>
         body { font-family: system-ui, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
-        .card { max-width: 450px; margin: 40px auto; background: #1e1e1e; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .card { max-width: 480px; margin: 30px auto; background: #1e1e1e; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         input { width: 90%; padding: 14px; border-radius: 10px; border: 1px solid #333; background: #2a2a2a; color: #fff; font-size: 15px; margin-bottom: 15px; text-align: center; outline: none; }
-        button { width: 95%; padding: 14px; border-radius: 10px; border: none; background: #0088cc; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #0077b5; }
-        #status { margin-top: 18px; font-size: 15px; font-weight: 500; }
-        .dl-container { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        .download-btn { display: block; width: 90%; padding: 14px; background: #28a745; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; transition: 0.2s; }
-        .download-btn:hover { background: #218838; }
+        button { width: 95%; padding: 14px; border-radius: 10px; border: none; background: #0088cc; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+        #status { margin-top: 15px; font-weight: 500; }
+        .download-box { margin-top: 20px; display: none; }
+        .dl-btn { display: inline-block; width: 90%; padding: 14px; background: #28a745; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -21,100 +19,47 @@
     <div class="card">
         <h2>🚀 Snap Social Downloader</h2>
         <input type="text" id="videoUrl" placeholder="ضع رابط الفيديو هنا...">
-        <button onclick="downloadVideo()">جلب سيرفرات التحميل</button>
+        <button onclick="processLink()">جلب رابط التحميل</button>
         
         <div id="status"></div>
-        <div id="result" class="dl-container"></div>
+        <div id="downloadBox" class="download-box">
+            <a id="dlLink" href="#" target="_blank" download class="dl-btn">📥 اضغط هنا للتحميل المباشر (MP4)</a>
+        </div>
     </div>
 
     <script>
-        async function downloadVideo() {
-            const urlInput = document.getElementById('videoUrl').value.trim();
+        async function processLink() {
+            const url = document.getElementById('videoUrl').value.trim();
             const status = document.getElementById('status');
-            const result = document.getElementById('result');
-            
-            status.innerHTML = "⏳ جاري استخراج رابط التحميل...";
-            status.style.color = "#0088cc";
-            result.innerHTML = "";
+            const box = document.getElementById('downloadBox');
+            const dlLink = document.getElementById('dlLink');
 
-            if (!urlInput) {
-                status.innerHTML = "⚠️ يرجى إدخال رابط صحيح!";
-                status.style.color = "#ff4d4d";
+            if (!url) {
+                status.innerHTML = "<span style='color:red;'>يرجى إدخال الرابط!</span>";
                 return;
             }
 
-            // إضافة https:// لو الرابط بدونها
-            let cleanUrl = urlInput;
-            if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-                cleanUrl = 'https://' + cleanUrl;
-            }
-
-            // قائمة سيرفرات API مباشرة تتيح التحميل بدون حظر CORS
-            const apis = [
-                "https://corsproxy.io/?" + encodeURIComponent("https://co.wuk.sh/api/json"),
-                "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api.cobalt.tools/api/json")
-            ];
-
-            let success = false;
+            status.innerHTML = "⏳ جاري تحضير سيرفر التحميل...";
+            box.style.display = "none";
 
             try {
-                const response = await fetch("https://co.wuk.sh/api/json", {
-                    method: "POST",
-                    headers: {
-                        "Accept": "application/json",
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        url: cleanUrl,
-                        vQuality: "720"
-                    })
+                const res = await fetch('/extract', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ url: url })
                 });
 
-                const data = await response.json();
+                const data = await res.json();
 
-                if (data && data.url) {
-                    status.innerHTML = "✅ تم جلب الفيديو بنجاح!";
-                    status.style.color = "#28a745";
-                    
-                    result.innerHTML = `
-                        <a href="${data.url}" target="_blank" download class="download-btn">
-                            📥 تحميل الفيديو مباشرة (MP4)
-                        </a>
-                    `;
-                    success = true;
+                if (data.download_url) {
+                    status.innerHTML = "<span style='color:#28a745;'>✅ تم تجهيز الفيديو بنجاح!</span>";
+                    dlLink.href = data.download_url;
+                    box.style.display = "block";
+                } else {
+                    status.innerHTML = `<span style='color:red;'>${data.error || 'خطأ في جلب الفيديو'}</span>`;
                 }
-            } catch (e) {
-                console.log("خطأ في السيرفر الأول، جاري تجربة السيرفر المباشر...");
-            }
-
-            // خطة بديلة فورية تجلب رابط التحميل عبر وسيط بدون الخروج من الموقع
-            if (!success) {
-                try {
-                    const fallbackRes = await fetch("https://api.vidsaver.net/api/download", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ url: cleanUrl })
-                    });
-                    const fbData = await fallbackRes.json();
-
-                    if (fbData && fbData.url) {
-                        status.innerHTML = "✅ تم جلب الفيديو بنجاح!";
-                        status.style.color = "#28a745";
-                        result.innerHTML = `
-                            <a href="${fbData.url}" target="_blank" download class="download-btn">
-                                📥 تحميل الفيديو (MP4)
-                            </a>
-                        `;
-                        success = true;
-                    }
-                } catch(err) {
-                    console.log(err);
-                }
-            }
-
-            if (!success) {
-                status.innerHTML = "❌ تعذر جلب الفيديو، تأكد أن الفيديو عام وغير محظور.";
-                status.style.color = "#ff4d4d";
+            } catch (err) {
+                status.innerHTML = "<span style='color:red;'>حدث خطأ في الاتصال بالسيرفر.</span>";
             }
         }
     </script>
